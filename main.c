@@ -30,6 +30,7 @@
 // local includes
 #include "config.h"
 #include "register_names.h"
+#include "median.h"
 
 int twi_file;
 
@@ -41,6 +42,9 @@ void get_measurement(uint16_t *ret_temp, uint16_t *ret_humid);
 int main()
 {
 	uint16_t humidity, temp;
+	double humidity_d[MEASURE_ITERATIONS];
+	double temp_d[MEASURE_ITERATIONS];
+
 
     if ((twi_file = open(TWI_BUS, O_RDWR)) < 0)
     {
@@ -63,16 +67,23 @@ int main()
 	// configure HDC1080 to measure humidity and temperature at once and 14 bit resolution
 	// additionally enable heating for humidity measurement
 	write_twi(CONFIG_REG, DEFAULT_CONFIG | CONFIG_HEATING); 
-	get_measurement(&temp, &humidity);	
 	
-	// calculate temperature and humidity values
-	temp = temp * (160.0/65536.0) - 40.0;
-	humidity = humidity * (100.0/65536.9);
+	for (uint32_t i = 0; i < MEASURE_ITERATIONS; i++)
+	{
+		get_measurement(&temp, &humidity);	
+	
+		// calculate temperature and humidity values
+		temp_d[i] 		= temp * (160.0/65536.0) - 40.0;
+		humidity_d[i] 	= humidity * (100.0/65536.9);
+
+		usleep(CONFIG_SLEEP);
+	}
 	
 	//disable heating
 	write_twi(CONFIG_REG, DEFAULT_CONFIG);
 
-	printf("Temperatur: %d, Humidity: %d \n", temp, humidity);
+	printf("Temperatur: %.2f Humidity: %.2f \n", get_median(temp_d, MEASURE_ITERATIONS),
+				get_median(humidity_d, MEASURE_ITERATIONS));
 	return 0;
 }
 
